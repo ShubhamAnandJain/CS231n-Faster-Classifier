@@ -112,4 +112,6 @@ dependencies:
   - zeromq=4.3.4=h23ab428_0
   - zlib=1.2.12=h4dc903c_2
   - zstd=1.4.9=h322a384_0
+  - pip:
+    - torchsummary==1.5.1
 prefix: /opt/anaconda3/envs/cs231n_project
