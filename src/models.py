@@ -149,7 +149,7 @@ def get_model(model_name, model_params, learning_rate, loader_train, num_channel
     model = ChannelWrapper(model, num_channels, 3).to(device)
 
   if model_params.get('gradinit') is not None:
-    model_params['gradinit']['lr'] = learning_rate
+    # model_params['gradinit']['lr'] = learning_rate
     model = gradinit(model, model_params['gradinit'], loader_train)
 
   # NOTE: assuming our model's input channels are 3

@@ -365,6 +365,7 @@ def gradinit(net, gradinit_args, dataloader):
     args = get_default_args()
 
     args.__dict__.update(gradinit_args)
+    print("GradInit Args: {}, Iters {}, lr {}".format(args.gradinit_alg, args.gradinit_iters, args.gradinit_lr))
 
     if args.gradinit_resume:
         print("Resuming GradInit model from {}".format(args.gradinit_resume))
@@ -380,8 +381,8 @@ def gradinit(net, gradinit_args, dataloader):
     bias_params = [p for n, p in net.named_parameters() if 'bias' in n]
     weight_params = [p for n, p in net.named_parameters() if 'weight' in n]
 
-    optimizer = RescaleAdam([{'params': weight_params, 'min_scale': args.gradinit_min_scale, 'lr': args.lr},
-                                      {'params': bias_params, 'min_scale': 0, 'lr': args.lr}],
+    optimizer = RescaleAdam([{'params': weight_params, 'min_scale': args.gradinit_min_scale, 'lr': args.gradinit_lr},
+                                      {'params': bias_params, 'min_scale': 0, 'lr': args.gradinit_lr}],
                                      grad_clip=args.gradinit_grad_clip)
 
     criterion = nn.CrossEntropyLoss()
