@@ -56,7 +56,7 @@ def replace_layers(model, old, new, device, bn_pres=False, mult_val=1.0):
       _, npres = replace_layers(module, old, new, device, bn_pres)
       pres |= npres
 
-    if isinstance(module, old):
+    if type(module) is old:
       ## simple module
       if new == PreConv:
         pc_layer = PreConv(
@@ -102,6 +102,96 @@ def replace_layers(model, old, new, device, bn_pres=False, mult_val=1.0):
 
   return (model, pres)
 
+def get_num_layers(model, layer):
+
+  num_layers = 0
+
+  for n, module in model.named_children():
+    if len(list(module.children())) > 0:
+      num_child = get_num_layers(module, layer)
+      num_layers += num_child
+
+    if type(module) is layer:
+      num_layers += 1
+
+  return num_layers
+
+POSSIBLE_MODES = ["first", "last", "firstlast", "first", "last"]
+# mode = (("first", 0.0), ("last", 0.0), ("firstlast", 0.0), ("first", 0.3), ("last", 0.5))
+
+
+def replace_layer_from_list(model, old, new, replace_list, device, num_layers, mult_val=1.0):
+
+  for n, module in model.named_children():
+
+    if type(module) is old:
+      if num_layers in replace_list:
+        if new == approx_Linear:
+          set_bias = False
+          if module.bias is not None:
+            set_bias = True
+          lin_layer = approx_Linear(
+            module.in_features,
+            module.out_features,
+            bias=set_bias,
+            sample_ratio=mult_val
+          ).to(device)
+          setattr(model, n, lin_layer)
+        
+        elif new == approx_Conv2d:
+          conv_layer = approx_Conv2d(
+            module.in_channels,
+            module.out_channels,
+            kernel_size=module.kernel_size,
+            padding=module.padding,
+            stride=module.stride,
+            sample_ratio=mult_val
+          ).to(device)
+          setattr(model, n, conv_layer)
+
+      num_layers += 1
+
+    if len(list(module.children())) > 0:
+      num_layers = replace_layer_from_list(module, old, new, replace_list, device, num_layers, mult_val)
+
+
+  return num_layers
+
+
+def replace(model, layer, new_layer, mode, device, mult_val=1.0):
+  num_layers= get_num_layers(model, layer)
+  all_layers = list(range(num_layers))
+  replace_layers_list = []
+
+  for mode_constraint in mode:
+    replace_val = mode_constraint[1]
+
+    if(mode_constraint[0]=="first_frac"):
+      replace_layers_list += all_layers[:int(num_layers * replace_val)]
+
+    if(mode_constraint[0]=="last_frac"):
+      replace_layers_list += all_layers[-int(num_layers * replace_val):]
+
+    if(mode_constraint[0]=="first_num"):
+      replace_layers_list += all_layers[:replace_val]
+    
+    if(mode_constraint[0]=="last_only"):
+      replace_layers_list += all_layers[-replace_val:]
+
+  replace_layers_list = list(set(replace_layers_list))
+  replace_layers_list.sort()
+
+  print(f'Replace layers list is: {replace_layers_list}')
+    
+  replace_layer_from_list(model, layer, new_layer, replace_layers_list, device, 0, mult_val)
+
+  num_layers = get_num_layers(model, layer)
+  new_layers = get_num_layers(model, new_layer)
+  print(f'Number of og layers are {num_layers}, number of new layers are {new_layers}')
+
+  return model
+
+
 def add_convnorm(model, device):
 
   model, bn_pres = replace_layers(model, nn.BatchNorm2d, None, device)
@@ -109,10 +199,13 @@ def add_convnorm(model, device):
 
   return model
 
-def approx_mult(model, device, mult_val):
+def approx_mult(model, device, approx_mult_params):
 
-  model, _ = replace_layers(model, nn.Linear, approx_Linear, device, mult_val=mult_val)
-  model, _ = replace_layers(model, nn.Conv2d, approx_Conv2d, device, mult_val=mult_val)
+  mult_val = approx_mult_params['mult_val']
+  mode = approx_mult_params['mode']
+
+  model = replace(model, nn.Linear, approx_Linear, mode, device, mult_val=mult_val)
+  model = replace(model, nn.Conv2d, approx_Conv2d, mode, device, mult_val=mult_val)
 
   return model
 
