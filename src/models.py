@@ -57,7 +57,6 @@ def replace_layers(model, old, new, device, bn_pres=False, mult_val=1.0):
       pres |= npres
 
     if type(module) is old:
-      ## simple module
       if new == PreConv:
         pc_layer = PreConv(
           module.in_channels,
@@ -105,27 +104,46 @@ def replace_layers(model, old, new, device, bn_pres=False, mult_val=1.0):
 def get_num_layers(model, layer):
 
   num_layers = 0
+  bn_pres = False
 
   for n, module in model.named_children():
+    
     if len(list(module.children())) > 0:
-      num_child = get_num_layers(module, layer)
+      num_child, bn_curr = get_num_layers(module, layer)
       num_layers += num_child
+      bn_pres |= bn_curr
 
     if type(module) is layer:
       num_layers += 1
+    
+    if type(module) is nn.BatchNorm2d:
+      bn_pres = True
 
-  return num_layers
+  return num_layers, bn_pres
 
 POSSIBLE_MODES = ["first", "last", "firstlast", "first", "last"]
 # mode = (("first", 0.0), ("last", 0.0), ("firstlast", 0.0), ("first", 0.3), ("last", 0.5))
 
 
-def replace_layer_from_list(model, old, new, replace_list, device, num_layers, mult_val=1.0):
+def replace_layer_from_list(model, old, new, replace_list, device, num_layers, bn_pres, mult_val=1.0):
 
   for n, module in model.named_children():
 
     if type(module) is old:
       if num_layers in replace_list:
+        if new == PreConv:
+          pc_layer = PreConv(
+            module.in_channels,
+            module.out_channels,
+            kernel_size=module.kernel_size,
+            bias=bn_pres,
+            padding=module.padding,
+            stride=module.stride,
+            affine=bn_pres,
+            bn=False
+          ).to(device)
+          setattr(model, n, pc_layer)
+
         if new == approx_Linear:
           set_bias = False
           if module.bias is not None:
@@ -149,19 +167,35 @@ def replace_layer_from_list(model, old, new, replace_list, device, num_layers, m
           ).to(device)
           setattr(model, n, conv_layer)
 
+        elif new == approx_Conv2d:
+          conv_layer = approx_Conv2d(
+            module.in_channels,
+            module.out_channels,
+            kernel_size=module.kernel_size,
+            padding=module.padding,
+            stride=module.stride,
+            sample_ratio=mult_val
+          ).to(device)
+          setattr(model, n, conv_layer)
+
+        elif new == nn.Identity:
+          setattr(model, n, nn.Identity().to(device))
+
       num_layers += 1
 
     if len(list(module.children())) > 0:
-      num_layers = replace_layer_from_list(module, old, new, replace_list, device, num_layers, mult_val)
-
+      num_layers = replace_layer_from_list(module, old, new, replace_list, device, num_layers, bn_pres, mult_val)
 
   return num_layers
 
 
 def replace(model, layer, new_layer, mode, device, mult_val=1.0):
-  num_layers= get_num_layers(model, layer)
+  num_layers, bn_pres = get_num_layers(model, layer)
   all_layers = list(range(num_layers))
   replace_layers_list = []
+
+  print(f'bn_pres is {bn_pres}')
+  print(f'Originally num layers were {num_layers}')
 
   for mode_constraint in mode:
     replace_val = mode_constraint[1]
@@ -182,20 +216,23 @@ def replace(model, layer, new_layer, mode, device, mult_val=1.0):
   replace_layers_list.sort()
 
   print(f'Replace layers list is: {replace_layers_list}')
-    
-  replace_layer_from_list(model, layer, new_layer, replace_layers_list, device, 0, mult_val)
 
-  num_layers = get_num_layers(model, layer)
-  new_layers = get_num_layers(model, new_layer)
+  replace_layer_from_list(model, layer, new_layer, replace_layers_list, device, 0, bn_pres, mult_val)
+
+  num_layers, _ = get_num_layers(model, layer)
+  new_layers, _ = get_num_layers(model, new_layer)
   print(f'Number of og layers are {num_layers}, number of new layers are {new_layers}')
 
   return model
 
 
-def add_convnorm(model, device):
+def add_convnorm(model, device, convnorm_params):
 
-  model, bn_pres = replace_layers(model, nn.BatchNorm2d, None, device)
-  model, _ = replace_layers(model, nn.Conv2d, PreConv, device, bn_pres=bn_pres)
+  mode_conv = convnorm_params['mode_conv']
+  mode_bn = convnorm_params['mode_bn']
+
+  model = replace(model, nn.Conv2d, PreConv, mode_conv, device)
+  model = replace(model, nn.BatchNorm2d, nn.Identity, mode_bn, device)
 
   return model
 
@@ -233,7 +270,7 @@ def get_model(model_name, model_params, learning_rate, loader_train, num_channel
   model = model_dict[model_name]().to(device)
 
   if model_params.get('convnorm') is not None:
-    model = add_convnorm(model, device)
+    model = add_convnorm(model, device, model_params['convnorm'])
 
   if model_params.get('approx_mult') is not None:
     model = approx_mult(model, device, model_params['approx_mult'])
