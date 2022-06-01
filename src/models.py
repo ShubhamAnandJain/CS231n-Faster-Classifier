@@ -266,7 +266,7 @@ class ChannelWrapper(nn.Module):
 
 def get_model(model_name, model_params, learning_rate, loader_train, num_channels, device):
 
-  model_dict = {'VGG16' : models.vgg16, 'Resnet18' : models.resnet18, 'SmallCNN' : SmallCNN}
+  model_dict = {'VGG16' : models.vgg16, 'Resnet18' : models.resnet18, 'Resnet50' : models.resnet50, 'SmallCNN' : SmallCNN}
   model = model_dict[model_name]().to(device)
 
   if model_params.get('convnorm') is not None:
