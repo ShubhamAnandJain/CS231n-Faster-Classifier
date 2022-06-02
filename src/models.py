@@ -209,7 +209,7 @@ def replace(model, layer, new_layer, mode, device, mult_val=1.0):
     if(mode_constraint[0]=="first_num"):
       replace_layers_list += all_layers[:replace_val]
     
-    if(mode_constraint[0]=="last_only"):
+    if(mode_constraint[0]=="last_num"):
       replace_layers_list += all_layers[-replace_val:]
 
   replace_layers_list = list(set(replace_layers_list))
