@@ -239,10 +239,11 @@ def add_convnorm(model, device, convnorm_params):
 def approx_mult(model, device, approx_mult_params):
 
   mult_val = approx_mult_params['mult_val']
-  mode = approx_mult_params['mode']
+  mode_conv = approx_mult_params['mode_conv']
+  mode_linear = approx_mult_params['mode_linear']
 
-  model = replace(model, nn.Linear, approx_Linear, mode, device, mult_val=mult_val)
-  model = replace(model, nn.Conv2d, approx_Conv2d, mode, device, mult_val=mult_val)
+  model = replace(model, nn.Linear, approx_Linear, mode_linear, device, mult_val=mult_val)
+  model = replace(model, nn.Conv2d, approx_Conv2d, mode_conv, device, mult_val=mult_val)
 
   return model
 
