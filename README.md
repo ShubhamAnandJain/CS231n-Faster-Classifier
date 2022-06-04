@@ -15,6 +15,20 @@ Run the following script to install custom PyTorch layers for Approximate Tensor
 
 Sample Notebook showing how to use the library is attached in `./src/demo.ipynb`
 
+### Adding a New Model
+Edit `./src/models.py`, and add your model to the `model_dict` in `get_model`
+
+```python
+def get_model(model_name, model_params, learning_rate, loader_train, num_channels, device):
+    model_dict = {
+        'VGG16' : models.vgg16, 
+        'Resnet18' : models.resnet18, 
+        'Resnet50' : models.resnet50, 
+        'SmallCNN' : SmallCNN
+    }
+
+```
+
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
