@@ -24,7 +24,6 @@ def get_model(model_name, model_params, learning_rate, loader_train, num_channel
         'VGG16' : models.vgg16, 
         'Resnet18' : models.resnet18, 
         'Resnet50' : models.resnet50, 
-        'SmallCNN' : SmallCNN
     }
 
 ```
