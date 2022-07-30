@@ -2,6 +2,8 @@
 
 This is a Python library for using the latest SOTA techniques to improve the training pipeline of DNNs, making them faster and robust.
 
+This was done for the course CS231n (Spring 2022) at Stanford. Find our poster here: http://cs231n.stanford.edu/reports/2022/pdfs/122p.pdf, and our paper here: http://cs231n.stanford.edu/reports/2022/pdfs/122.pdf
+
 ## Installation
 
 Use the package manager [conda](https://docs.conda.io/en/latest/) to install `torch==1.7 torchvision==0.8`
